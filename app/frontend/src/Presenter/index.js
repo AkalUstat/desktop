@@ -17,7 +17,6 @@ import controller from '../lib/controller'
 import { getUrlState, mapPlatformKeys } from '../lib/utils'
 import {
   CONTROLLER_URL,
-  MENU_URL,
   SEARCH_URL,
   HISTORY_URL,
   NAVIGATOR_URL,
@@ -30,6 +29,7 @@ import { GLOBAL_SHORTCUTS } from '../lib/keyMap'
 import ThemeLoader from '../shared/ThemeLoader'
 import Loader from '../shared/Loader'
 import NavigatorHotKeys from '../shared/NavigatorHotkeys'
+import { withErrorFallback } from '../shared/ErrorFallback'
 
 import StatusToast from './StatusToast'
 
@@ -124,7 +124,6 @@ class Presenter extends Component {
   hotkeyHandlers = this.preventDefault( {
     [ GLOBAL_SHORTCUTS.toggleController.name ]: this.toggleController,
     [ GLOBAL_SHORTCUTS.newController.name ]: () => window.open( `${CONTROLLER_URL}?${STATES.controllerOnly}=true`, '_blank' ),
-    [ GLOBAL_SHORTCUTS.menu.name ]: () => this.go( MENU_URL ),
     [ GLOBAL_SHORTCUTS.settings.name ]: () => window.open( SETTINGS_URL ),
     [ GLOBAL_SHORTCUTS.search.name ]: () => this.go( SEARCH_URL ),
     [ GLOBAL_SHORTCUTS.history.name ]: () => this.go( HISTORY_URL ),
@@ -190,4 +189,4 @@ Presenter.defaultProps = {
   status: null,
 }
 
-export default hot( Presenter )
+export default hot( withErrorFallback( Presenter ) )

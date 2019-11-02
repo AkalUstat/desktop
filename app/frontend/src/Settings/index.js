@@ -25,8 +25,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faBars, faWindowMaximize, faInfo } from '@fortawesome/free-solid-svg-icons'
 
 import controller from '../lib/controller'
-import ThemeLoader from '../shared/ThemeLoader'
-
 import {
   BACKEND_URL,
   SETTINGS_URL,
@@ -39,6 +37,9 @@ import {
   OPTION_GROUPS,
 } from '../lib/consts'
 import SHORTCUTS from '../lib/keyMap'
+
+import ThemeLoader from '../shared/ThemeLoader'
+import { withErrorFallback } from '../shared/ErrorFallback'
 
 import SettingComponentFactory from './SettingComponents'
 import Sources from './Sources'
@@ -170,9 +171,9 @@ class Settings extends Component {
 
       return (
         <Grid key={option} container className="option" alignItems="center">
-          <Grid item xs={2} lg={1}>{icon && <FontAwesomeIcon className="icon" icon={icon} />}</Grid>
-          <Grid item xs={6} lg={3}><Typography>{name}</Typography></Grid>
-          <Grid item container xs={3} justify="center">
+          <Grid item xs={2} sm={1}>{icon && <FontAwesomeIcon className="icon" icon={icon} />}</Grid>
+          <Grid item xs={5} sm={6} md={4} lg={3}><Typography>{name}</Typography></Grid>
+          <Grid item xs={5} sm={5} md={4} lg={3} align="center">
             <Option {...props} option={option} value={value} onChange={setSettings} />
           </Grid>
         </Grid>
@@ -238,4 +239,4 @@ Settings.propTypes = {
   location: location.isRequired,
 }
 
-export default hot( Settings )
+export default hot( withErrorFallback( Settings ) )
