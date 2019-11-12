@@ -10,6 +10,7 @@ import { firstLetterSearch, fullWordSearch, getBanis } from './lib/db'
 import Updater from './lib/Updater'
 import settings from './lib/settings'
 import logger from './lib/logger'
+import { handleError } from './lib/error'
 import {
   PORT,
   CUSTOM_THEMES_FOLDER,
@@ -21,7 +22,7 @@ import {
   FRONTEND_THEMES_FOLDER,
   isDev,
 } from './lib/consts'
-import { ensureRequiredDirs, notify } from './lib/utils'
+import { ensureRequiredDirs, notify, sendToElectron } from './lib/utils'
 
 
 /**
@@ -94,16 +95,16 @@ async function main() {
   socket.on( 'connection', async client => client.sendJSON( 'banis:list', await getBanis() ) )
 
   // Start the server
-  server.listen( PORT, () => logger.info( `Running express API server on port ${PORT}` ) )
+  server.listen( PORT, () => {
+    sendToElectron( 'ready' )
+    logger.info( `Running express API server on port ${PORT}` )
+  } )
+
+  // When settings change, notify Electron
+  settings.on( 'change', settings => sendToElectron( 'settings', settings ) )
 
   // Check for updates every 5 minutes, in production only
   if ( !isDev ) initialiseUpdater( sessionManager )
-}
-
-// Handle any errors by logging and sending it to Sentry
-const handleError = error => {
-  logger.error( error )
-  analytics.sendException( error )
 }
 
 process.on( 'uncaughtException', handleError )

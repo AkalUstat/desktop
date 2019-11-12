@@ -18,7 +18,6 @@ const logger = require( '../lib/logger' ).default
  */
 const spawnServer = () => spawn( execPath, [ LAUNCH_FLAG ], {
   env: { LOG_FILE },
-  detached: true,
   stdio: [ 'pipe', 'pipe', 'pipe', 'ipc' ],
 } )
 
@@ -29,7 +28,9 @@ const spawnServer = () => spawn( execPath, [ LAUNCH_FLAG ], {
  */
 const loadServer = () => {
   // IPC message handler used to indicate termination
-  process.on( 'message', () => {
+  process.on( 'message', ( { event } ) => {
+    if ( event !== 'quit' ) return
+
     logger.info( 'Gracefully quitting backend' )
     app.quit()
   } )
@@ -41,7 +42,7 @@ const loadServer = () => {
 /**
  * Function to load the electron wrapper for frontend.
  */
-const loadElectron = () => { require( './electron-wrapper' ) }
+const loadElectron = server => { require( './electron-wrapper' )( server ) }
 
 // Load either Electron shell or backend server depending on flag
 const [ , processFlag ] = argv
@@ -50,11 +51,11 @@ if ( processFlag === LAUNCH_FLAG ) {
   loadServer()
 } else {
   const server = spawnServer()
-  const killServer = () => server.send( 'quit' )
+  const killServer = () => server.send( { event: 'quit' } )
 
   process.on( 'SIGINT', killServer )
   process.on( 'uncaughtException', killServer )
   process.on( 'exit', killServer )
 
-  loadElectron()
+  loadElectron( server )
 }

@@ -1,51 +1,27 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
-import { app, BrowserWindow } from 'electron'
-import fetch from 'electron-fetch'
+import { app } from 'electron'
 
 import logger from '../lib/logger'
-import { PORT, isDev } from '../lib/consts'
+import { isDev } from '../lib/consts'
 
-const BASE_URL = !isDev ? `http://localhost:${PORT}` : `http://localhost:${3000}`
+import { createMainWindow, createNonMainWindows, closeNonMainWindows } from './window'
+import { setBeta, initUpdates, checkUpdates } from './updates'
 
-let mainWindow
 
-/**
- * Loads the Shabad OS web page, if available.
- * Uses server heartbeat to determine whether server is ready yet.
- */
-const loadPage = () => fetch( `${BASE_URL}/heartbeat` )
-  .then( () => mainWindow.loadURL( BASE_URL ) )
-  .catch( () => setTimeout( loadPage, 300 ) )
+const onSettingsChange = ( { system } ) => {
+  // Toggle multiple displays
+  if ( system.multipleDisplays ) createNonMainWindows()
+  else closeNonMainWindows()
 
-/**
- * Creates a browser window.
- */
-function createWindow() {
-  // Create the browser window.
-  mainWindow = new BrowserWindow( { show: false } )
-
-  // Load the web page
-  loadPage()
-
-  mainWindow.on( 'ready-to-show', () => {
-    mainWindow.setMenuBarVisibility( isDev )
-    mainWindow.maximize()
-    mainWindow.show()
-    mainWindow.focus()
-  } )
-
-  // Quit when main window is closed
-  mainWindow.on( 'closed', () => {
-    mainWindow = null
-    app.quit()
-  } )
+  // Ensure updater beta settings are in sync
+  setBeta( system.betaOptIn )
 }
 
-app.on( 'ready', createWindow )
-
-app.on( 'activate', () => {
-  if ( mainWindow === null ) createWindow()
-} )
+const onReady = server => {
+  logger.info( 'Starting Electron Shell' )
+  initUpdates( server )
+  createMainWindow()
+}
 
 // Catch any errors
 //! Should catch port in use separately, means shabad os is likely already running
@@ -55,3 +31,34 @@ process.on( 'uncaughtException', error => {
 
   process.exit( 1 )
 } )
+
+//! Random 5 second timeout before trying to connect to server
+if ( isDev ) {
+  app.on( 'ready', () => setTimeout( () => {
+    onReady()
+
+    // Pretend setting updates are sent over
+    setInterval( () => {
+      // eslint-disable-next-line global-require
+      const settings = require( '../lib/settings' ).default
+      settings.loadSettings()
+
+      onSettingsChange( settings.get() )
+    }, 1000 )
+  }, 5000 ) )
+}
+
+// Handlers for server IPC events
+const handlers = {
+  ready: server => () => ( app.isReady() ? onReady( server ) : app.on( 'ready,', () => onReady( server ) ) ),
+  settings: () => onSettingsChange,
+  'update-check': server => () => checkUpdates( server ),
+}
+
+// Register handlers from server IPC
+module.exports = server => {
+  server.on( 'message', ( { event, payload } ) => {
+    const handler = handlers[ event ] || ( () => () => {} )
+    handler( server )( payload )
+  } )
+}
