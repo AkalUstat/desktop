@@ -1,6 +1,6 @@
 {
   "name": "@shabados/backend",
-  "version": "2.0.0-beta.5",
+  "version": "2.0.0",
   "description": "Shabad OS",
   "main": "electron/esm-wrapper.js",
   "scripts": {
@@ -43,6 +43,7 @@
     "ws": "^7.1.2"
   },
   "devDependencies": {
+    "electron": "^7.1.1",
     "nodemon": "^1.19.3",
     "pino-pretty": "^3.2.1"
   }
