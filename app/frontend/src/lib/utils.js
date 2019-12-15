@@ -7,9 +7,10 @@ import { findDOMNode } from 'react-dom'
 import scrollIntoView from 'scroll-into-view'
 import deepmerge from 'deepmerge'
 import queryString from 'qs'
-import { debounce } from 'lodash'
+import { find, findLastIndex, debounce, invert } from 'lodash'
+import memoize from 'memoizee'
 
-import { PAUSE_CHARS, STATES, isMac } from './consts'
+import { PAUSE_CHARS, STATES, isMac, BANIS } from './consts'
 
 /**
  * Merges the source object into the destination, replacing arrays.
@@ -139,3 +140,114 @@ export const mapPlatformKeys = keyMap => ( isMac
   } ), {} )
   : keyMap
 )
+
+const isBaniJumpLine = ( baniId, lines ) => (
+  { jumpLines },
+  { id, lineGroup, gurmukhi },
+  index,
+) => {
+  // Set the jump if it hasn't been set for the line group already
+  // eslint-disable-next-line no-unused-vars
+  const lineGroupFilter = () => typeof jumpLines[ lineGroup - 1 ] === 'undefined'
+  // Set the jump at each line end
+  const previousNumberFilter = () => ( index > 0 ? lines[ index - 1 ].gurmukhi.match( /](\d*)]$/ ) : true )
+
+  // Filters for different banis
+  const additionalFilters = {
+    // Asa Di Vaar
+    [ BANIS.ASA_KI_VAAR ]: () => previousNumberFilter() && !gurmukhi.match( /(pauVI ]|mhlw \d* ]|mÚ \d* ])/ ) && id !== '6WX1',
+  }
+
+  const filter = additionalFilters[ baniId ] || previousNumberFilter
+
+  return filter()
+}
+
+/**
+ * Produces a map of the line hotkey that corresponds to the line index.
+ * @param {*} An Object containing a shabad or bani, which contains lines.
+ */
+export const getJumpLines = memoize( ( { shabad, bani } ) => {
+  if ( !( shabad || bani ) ) return {}
+
+  const { lines } = shabad || bani
+
+  // Get a function for determining whether a line is jumpable
+  const isJumpLine = bani ? isBaniJumpLine( bani.id, lines ) : () => true
+
+  // Go over each line, and tag which lines are jumpable
+  const { jumpLines } = lines.reduce( ( { jumpLines, jumpIndex }, line, lineIndex ) => ( {
+    // Retain the current jump index and jump lines
+    jumpIndex,
+    jumpLines,
+
+    // If the current line is jumpable line, add it and move to the next
+    ...( isJumpLine( { jumpLines, jumpIndex }, line, lineIndex ) && {
+      jumpIndex: jumpIndex + 1,
+      jumpLines: { ...jumpLines, [ jumpIndex ]: line.id },
+    } ),
+  } ), { jumpIndex: 0, jumpLines: {} } )
+
+
+  return jumpLines
+}, {
+  primitive: true,
+  normalizer: ( [ { bani, shabad } ] ) => JSON.stringify( {
+    shabadId: ( shabad ? shabad.id : null ),
+    baniId: ( bani ? bani.id : null ),
+  } ),
+} )
+
+
+export const getBaniNextJumpLine = ( { bani, lineId } ) => {
+  const { lines } = bani
+
+  // Get jump lines and current line index
+  const jumpLines = invert( getJumpLines( { bani } ) )
+  const currentLineIndex = lines.findIndex( ( { id } ) => id === lineId )
+  const currentLine = lines[ currentLineIndex ]
+
+  // Get next jump line by searching for it from the current line's index
+  const nextJumpLineFinder = () => find(
+    lines,
+    ( { id } ) => !!jumpLines[ id ],
+    Math.min( currentLineIndex + 1, lines.length - 1 ),
+  ) || {}
+
+  // Gets the next line after the last pauri
+  const lastPauriFinder = () => {
+    const pauriRegex = new RegExp( /pauVI ]/ )
+
+    if ( !currentLine || currentLineIndex === 0 ) return null
+    if ( pauriRegex.test( currentLine.gurmukhi ) ) return null
+
+    const pauriIndex = findLastIndex(
+      lines,
+      ( { gurmukhi } ) => pauriRegex.test( gurmukhi ),
+      currentLineIndex,
+    )
+
+    return lines[ pauriIndex ]
+  }
+
+  // Next line jump finder overrides for specific banis
+  const additionalFinders = {
+    // Find last Pauri, otherwise, find next chakka
+    [ BANIS.ASA_KI_VAAR ]: () => lastPauriFinder() || nextJumpLineFinder(),
+  }
+
+  const findNextJumpLine = additionalFinders[ bani.id ] || nextJumpLineFinder
+
+  const { id: baniNextLineId } = findNextJumpLine()
+  return baniNextLineId
+}
+
+/**
+ * Gets the next jump line id for a shabad or bani.
+ * @param {*} An Object containing a shabad or bani, which contains lines.
+ */
+export const getNextJumpLine = ( { nextLineId, shabad, bani, lineId } ) => {
+  if ( !( shabad || bani ) ) return null
+
+  return shabad ? nextLineId : getBaniNextJumpLine( { bani, lineId } )
+}
