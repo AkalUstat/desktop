@@ -46,17 +46,20 @@ const History = ( { transitionHistory, latestLines, register, focused } ) => (
         >
           <span className="hotkey meta">{LINE_HOTKEYS[ index ]}</span>
           <span className="gurmukhi text">{bani ? bani.nameGurmukhi : stripPauses( gurmukhi )}</span>
+          <span className="timestamp meta">
+            {new Date( timestamp ).toLocaleTimeString( navigator.language, { hour: '2-digit', minute: '2-digit' } )}
+          </span>
         </ListItem>
       )
     } ) }
     <ListItem onClick={() => transitionHistory.length && window.open( HISTORY_DOWNLOAD_URL )}>
-      <ListItemIcon className="meta">
+      <ListItemIcon className="meta icon">
         <FontAwesomeIcon icon={faDownload} />
       </ListItemIcon>
       Export
     </ListItem>
     <ListItem onClick={controller.clearHistory}>
-      <ListItemIcon className="meta">
+      <ListItemIcon className="meta icon">
         <FontAwesomeIcon icon={faTrash} />
       </ListItemIcon>
       Clear History
