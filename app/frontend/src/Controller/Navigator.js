@@ -1,9 +1,8 @@
 /* eslint-disable react/no-multi-comp */
 
-import React, { PureComponent, useState } from 'react'
-import { Redirect } from 'react-router-dom'
-import { string, func, shape, arrayOf, bool, objectOf } from 'prop-types'
-import { location } from 'react-router-prop-types'
+import React, { useState, useEffect, useMemo, useContext, useCallback } from 'react'
+import { Redirect, useLocation } from 'react-router-dom'
+import { string, func, bool } from 'prop-types'
 import classNames from 'classnames'
 import { invert } from 'lodash'
 import { GlobalHotKeys } from 'react-hotkeys'
@@ -22,11 +21,12 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 
 import { SEARCH_URL } from '../lib/consts'
-import { stripPauses, getJumpLines, getNextJumpLine } from '../lib/utils'
+import { stripPauses, getJumpLines, getNextJumpLine, findLineIndex } from '../lib/utils'
 import controller from '../lib/controller'
 import { LINE_HOTKEYS } from '../lib/keyMap'
+import { ContentContext, HistoryContext } from '../lib/contexts'
 
-import withNavigationHotKeys from '../shared/withNavigationHotKeys'
+import { withNavigationHotkeys } from '../shared/NavigationHotkeys'
 import NavigatorHotKeys from '../shared/NavigatorHotkeys'
 
 import ToolbarButton from './ToolbarButton'
@@ -73,7 +73,7 @@ const NavigatorLine = ( {
 
       {timestamp && (
         <span className="timestamp meta">
-          {new Date( timestamp ).toLocaleTimeString( navigator.language, { hour: '2-digit', minute: '2-digit' } )}
+          {new Date( timestamp ).toLocaleTimeString( navigator.language, { hour: '2-digit', minute: '2-digit', hour12: false } )}
           <FontAwesomeIcon className="icon" icon={faCheck} />
         </span>
       )}
@@ -101,114 +101,84 @@ NavigatorLine.defaultProps = {
  * Navigator Component.
  * Displays lines from Shabad and allows navigation.
  */
-class Navigator extends PureComponent {
-  componentDidMount() {
-    const { updateFocus, lineId } = this.props
+const Navigator = ( { updateFocus, register, focused } ) => {
+  const location = useLocation()
 
-    // Set the focus to the active line
-    updateFocus( lineId, false )
-  }
+  const { viewedLines } = useContext( HistoryContext )
 
-  componentDidUpdate( { lineId: prevLineId } ) {
-    const { lineId, updateFocus } = this.props
+  const content = useContext( ContentContext )
+  const { shabad, bani, lineId, mainLineId } = content
 
-    // Update the focus to any new lines
-    if ( lineId !== prevLineId ) {
-      updateFocus( lineId, false )
-    }
-  }
+  const { lines } = bani || shabad || {}
 
-  goToIndex = index => {
-    const { updateFocus } = this.props
+  // Set the focus to the active line when it changes
+  useEffect( () => { updateFocus( lineId, false ) }, [ lineId, updateFocus ] )
 
-    const jumpLines = getJumpLines( this.props )
-
+  const goToIndex = useCallback( index => {
+    const jumpLines = getJumpLines( { shabad, bani } )
     updateFocus( jumpLines[ index ] )
-  }
+  }, [ updateFocus, shabad, bani ] )
 
-    // Navigation Hotkey Handlers
-    hotKeyHandlers = ( {
-      ...LINE_HOTKEYS.reduce( ( handlers, key, i ) => ( {
-        ...handlers,
-        [ key ]: () => this.goToIndex( i ),
-      } ), {} ),
-    } )
+  // Navigation Hotkey Handlers
+  const hotKeyHandlers = useMemo( () => ( {
+    ...LINE_HOTKEYS.reduce( ( handlers, key, i ) => ( {
+      ...handlers,
+      [ key ]: () => goToIndex( i ),
+    } ), {} ),
+  } ), [ goToIndex ] )
 
-    numberKeyMap = LINE_HOTKEYS.reduce( ( keymap, hotkey ) => ( {
-      ...keymap,
-      [ hotkey ]: [ hotkey ],
-    } ), {} )
+  const numberKeyMap = useMemo( () => LINE_HOTKEYS.reduce( ( keymap, hotkey ) => ( {
+    ...keymap,
+    [ hotkey ]: [ hotkey ],
+  } ), {} ), [] )
 
+  // If there's no Shabad to show, go back to the controller
+  if ( !lines ) return <Redirect to={{ ...location, pathname: SEARCH_URL }} />
 
-    render() {
-      const { location, shabad, bani, register, focused, mainLineId, viewedLines } = this.props
+  const jumpLines = invert( getJumpLines( content ) )
+  const nextLineId = getNextJumpLine( content )
 
-      const content = shabad || bani
-
-      // If there's no Shabad to show, go back to the controller
-      if ( !content ) {
-        return <Redirect to={{ ...location, pathname: SEARCH_URL }} />
-      }
-
-      const jumpLines = invert( getJumpLines( { shabad, bani } ) )
-      const nextLineId = getNextJumpLine( this.props )
-
-      const { lines } = content
-      return (
-        <GlobalHotKeys keyMap={this.numberKeyMap} handlers={this.hotKeyHandlers}>
-          <List className="navigator" onKeyDown={e => e.preventDefault()}>
-            {lines.map( line => (
-              <NavigatorLine
-                key={line.id}
-                {...line}
-                focused={line.id === focused}
-                main={mainLineId === line.id}
-                next={nextLineId === line.id}
-                hotkey={LINE_HOTKEYS[ jumpLines[ line.id ] ]}
-                register={register}
-                timestamp={viewedLines[ line.id ]}
-              />
-            ) )}
-          </List>
-        </GlobalHotKeys>
-      )
-    }
+  return (
+    <GlobalHotKeys keyMap={numberKeyMap} handlers={hotKeyHandlers}>
+      <List className="navigator" onKeyDown={e => e.preventDefault()}>
+        {lines.map( line => (
+          <NavigatorLine
+            key={line.id}
+            {...line}
+            focused={line.id === focused}
+            main={mainLineId === line.id}
+            next={nextLineId === line.id}
+            hotkey={LINE_HOTKEYS[ jumpLines[ line.id ] ]}
+            register={register}
+            timestamp={viewedLines[ line.id ]}
+          />
+        ) ) }
+      </List>
+    </GlobalHotKeys>
+  )
 }
 
 Navigator.propTypes = {
-  lineId: string,
-  mainLineId: string,
-  nextLineId: string,
   updateFocus: func.isRequired,
   register: func.isRequired,
-  location: location.isRequired,
   focused: string,
-  viewedLines: objectOf( string ),
-  shabad: shape( { lines: arrayOf( shape( { id: string, gurmukhi: string } ) ) } ),
-  bani: shape( { lines: arrayOf( shape( { id: string, gurmukhi: string } ) ) } ),
 }
 
 Navigator.defaultProps = {
-  shabad: undefined,
-  bani: undefined,
-  lineId: undefined,
-  mainLineId: undefined,
-  nextLineId: undefined,
   focused: undefined,
-  viewedLines: {},
 }
 
-const NavigatorWithNavigationHotKeys = withNavigationHotKeys( {
+const NavigatorNavigationHotkeys = withNavigationHotkeys( {
   arrowKeys: true,
   lineKeys: true,
   clickOnFocus: true,
   wrapAround: false,
 } )( Navigator )
 
-// Wrap withNavigationHotKeys first so that it takes precedence
+// Wrap NavigationHotkeys first so that it takes precedence
 const NavigatorWithAllHotKeys = props => (
   <NavigatorHotKeys {...props} active>
-    <NavigatorWithNavigationHotKeys {...props} />
+    <NavigatorNavigationHotkeys {...props} />
   </NavigatorHotKeys>
 )
 
@@ -217,17 +187,16 @@ export default NavigatorWithAllHotKeys
 /**
  * Used by Menu parent to render content in the bottom bar.
  */
-export const Bar = props => {
+export const Bar = ( { onHover } ) => {
   const [ autoSelectHover, setAutoSelectHover ] = useState( false )
 
-  const { lineId, shabad, bani, onHover, mainLineId } = props
-  const content = shabad || bani
+  const content = useContext( ContentContext )
+  const { lineId, shabad, bani, mainLineId } = content
+  const { lines } = shabad || bani || {}
 
-  if ( !content ) return null
+  if ( !lines ) return null
 
-  const { lines } = content
-
-  const currentLineIndex = lines.findIndex( ( { id } ) => id === lineId )
+  const currentLineIndex = findLineIndex( lines, lineId )
   const currentLine = lines[ currentLineIndex ]
 
   const resetHover = () => onHover( null )
@@ -251,8 +220,8 @@ export const Bar = props => {
   }
 
   const onAutoToggle = () => {
-    if ( shabad ) controller.autoToggleShabad( props )
-    else if ( bani ) controller.autoToggleBani( props )
+    if ( shabad ) controller.autoToggleShabad( content )
+    else if ( bani ) controller.autoToggleBani( content )
   }
 
   const onAutoSelectHover = () => {
@@ -288,9 +257,7 @@ export const Bar = props => {
       />
 
       <span className="line-counter">
-        {lines
-          ? `${lines.findIndex( ( { id } ) => id === lineId ) + 1}/${lines.length}`
-          : null}
+        {`${findLineIndex( lines, lineId ) + 1}/${lines.length}`}
       </span>
 
       <ToolbarButton
@@ -314,17 +281,9 @@ export const Bar = props => {
 }
 
 Bar.propTypes = {
-  lineId: string,
-  mainLineId: string,
-  shabad: shape( { lines: arrayOf( shape( { id: string, gurmukhi: string } ) ) } ),
-  bani: shape( { lines: arrayOf( shape( { id: string, gurmukhi: string } ) ) } ),
   onHover: func,
 }
 
 Bar.defaultProps = {
-  lineId: undefined,
-  mainLineId: undefined,
-  shabad: undefined,
-  bani: undefined,
   onHover: () => {},
 }
