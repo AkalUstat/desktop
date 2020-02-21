@@ -38,7 +38,7 @@ import {
 } from '../lib/consts'
 import { OPTIONS, OPTION_GROUPS } from '../lib/options'
 import SHORTCUTS from '../lib/keyMap'
-import { SettingsContext, StatusContext } from '../lib/contexts'
+import { SettingsContext } from '../lib/contexts'
 
 import ThemeLoader from '../shared/ThemeLoader'
 import { withErrorFallback } from '../shared/ErrorFallback'
@@ -60,6 +60,14 @@ const Settings = () => {
 
   const settings = useContext( SettingsContext )
 
+  const devices = Array.from( Object.keys( settings ) )
+
+  const selectedDeviceSettings = settings[ device ] || settings.local
+
+  useEffect( () => {
+    if ( !devices.includes( device ) ) setDevice( 'local' )
+  }, [ device, devices ] )
+
   // Fetch list of themes from server
   useEffect( () => {
     fetch( `${BACKEND_URL}/presenter/themes` )
@@ -80,8 +88,6 @@ const Settings = () => {
 
   const openMobileMenu = () => setMobileOpen( true )
   const closeMobileMenu = () => setMobileOpen( false )
-
-  const { connected } = useContext( StatusContext )
 
   const renderMenuItems = () => {
     const Item = ( { name, icon, selected, url = SETTINGS_URL } ) => (
@@ -127,7 +133,7 @@ const Settings = () => {
             ) )}
         </Select>
 
-        {Object.keys( settings[ device ] )
+        {Object.keys( selectedDeviceSettings )
           .filter( name => OPTION_GROUPS[ name ] )
           .map( name => (
             <Item
@@ -192,14 +198,14 @@ const Settings = () => {
   )
 
   const { theme: { simpleGraphics } } = settings.local
-  const { theme: { themeName }, hotkeys } = settings[ device ]
+  const { theme: { themeName } = {}, hotkeys } = selectedDeviceSettings
 
-  const defaultUrl = `${SETTINGS_DEVICE_URL}/${Object.keys( settings[ device ] )[ 0 ]}`
+  const defaultUrl = `${SETTINGS_DEVICE_URL}/${Object.keys( selectedDeviceSettings )[ 0 ]}`
   const setSettings = settings => controller.setSettings( settings, device )
 
   return (
     <div className={classNames( { simple: simpleGraphics }, 'settings' )}>
-      <ThemeLoader name={themeName} connected={connected} />
+      <ThemeLoader name={themeName} />
 
       {renderMenu()}
       {renderTitlebar()}
@@ -209,8 +215,11 @@ const Settings = () => {
           <Redirect exact from={SETTINGS_DEVICE_URL} to={defaultUrl} />
 
           {/* Device setting routes */}
-          <Route path={`${SETTINGS_DEVICE_URL}/hotkeys`} render={() => <Hotkeys shortcuts={SHORTCUTS} keys={hotkeys} />} />
-          <Route path={`${SETTINGS_DEVICE_URL}/sources`} render={() => <Sources sources={settings[ device ].sources} setSettings={setSettings} />} />
+          <Route
+            path={`${SETTINGS_DEVICE_URL}/hotkeys`}
+            render={() => ( <Hotkeys shortcuts={SHORTCUTS} keys={hotkeys} device={device} /> )}
+          />
+          <Route path={`${SETTINGS_DEVICE_URL}/sources`} render={() => <Sources sources={selectedDeviceSettings.sources} setSettings={setSettings} />} />
           <Route path={`${SETTINGS_DEVICE_URL}/*`} render={() => <DynamicOptions device={device} group={group} onChange={setSettings} />} />
 
           {/* Server setting routes */}

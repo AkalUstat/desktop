@@ -1,10 +1,10 @@
-import React, { useContext } from 'react'
+import React from 'react'
 import { hot } from 'react-hot-loader/root'
 import { shape, bool } from 'prop-types'
 import classNames from 'classnames'
 
-import { getTranslation, getTransliteration, findLineIndex } from '../lib/utils'
-import { ContentContext, RecommendedSourcesContext } from '../lib/contexts'
+import { LANGUAGES } from '../lib/consts'
+import { useTranslations, useTransliterations, useCurrentLine, useCurrentLines } from '../lib/hooks'
 
 import Line from './Line'
 
@@ -21,7 +21,6 @@ const Display = ( { settings } ) => {
     layout,
     display,
     vishraams,
-    sources,
     theme: {
       simpleGraphics: simple,
       backgroundImage: background,
@@ -30,13 +29,10 @@ const Display = ( { settings } ) => {
     },
   } = settings
 
-  // Get the lines from the shabad, if they exist
-  const { shabad, bani, lineId } = useContext( ContentContext )
-  const { lines = [] } = shabad || bani || {}
 
   // Find the correct line in the Shabad
-  const lineIndex = findLineIndex( lines, lineId )
-  const line = lineIndex > -1 ? lines[ lineIndex ] : null
+  const lines = useCurrentLines()
+  const [ line, lineIndex ] = useCurrentLine()
 
   // Get the next lines
   const { nextLines: nextLineCount, previousLines: previousLineCount } = display
@@ -45,20 +41,22 @@ const Display = ( { settings } ) => {
     : []
   const nextLines = line ? lines.slice( lineIndex + 1, lineIndex + nextLineCount + 1 ) : []
 
-  const recommendedSources = useContext( RecommendedSourcesContext )
-  const getTranslationFor = languageId => getTranslation( {
-    shabad,
-    recommendedSources,
-    sources,
-    line,
-    languageId,
-  } )
+  const translations = useTranslations( line && [
+    display.englishTranslation && LANGUAGES.english,
+    display.punjabiTranslation && LANGUAGES.punjabi,
+    display.spanishTranslation && LANGUAGES.spanish,
+  ] )
 
-  const getTransliterationFor = languageId => getTransliteration( line, languageId )
+  const transliterations = useTransliterations( line && [
+    display.englishTransliteration && LANGUAGES.english,
+    display.hindiTransliteration && LANGUAGES.hindi,
+    display.urduTransliteration && LANGUAGES.urdu,
+  ] )
 
   return (
     <div className={classNames( { simple, background }, 'display' )}>
       <div className="background-image" />
+
       <div className={classNames( { dim }, 'previous-lines' )}>
         {line && previousLines.map( ( { id, gurmukhi } ) => (
           <Line
@@ -72,6 +70,7 @@ const Display = ( { settings } ) => {
           />
         ) )}
       </div>
+
       {line && (
       <Line
         className={classNames( { highlight }, 'current-line' )}
@@ -79,15 +78,16 @@ const Display = ( { settings } ) => {
         {...display}
         {...vishraams}
         gurmukhi={line.gurmukhi}
-        englishTranslation={display.englishTranslation && getTranslationFor( 1 )}
-        punjabiTranslation={display.punjabiTranslation && getTranslationFor( 2 )}
-        spanishTranslation={display.spanishTranslation && getTranslationFor( 3 )}
-        englishTransliteration={display.englishTransliteration && getTransliterationFor( 1 )}
-        hindiTransliteration={display.hindiTransliteration && getTransliterationFor( 4 )}
-        urduTransliteration={display.urduTransliteration && getTransliterationFor( 5 )}
+        englishTranslation={translations.english}
+        punjabiTranslation={translations.punjabi}
+        spanishTranslation={translations.spanish}
+        englishTransliteration={transliterations.english}
+        hindiTransliteration={transliterations.hindi}
+        urduTransliteration={transliterations.urdu}
         simpleGraphics={simple}
       />
       )}
+
       <div className={classNames( { dim }, 'next-lines' )}>
         {line && nextLines.map( ( { id, gurmukhi } ) => (
           <Line
@@ -101,6 +101,7 @@ const Display = ( { settings } ) => {
           />
         ) )}
       </div>
+
     </div>
   )
 }

@@ -55,7 +55,7 @@ export const GLOBAL_SHORTCUTS = decorateGroup( {
   },
   navigator: {
     name: 'Navigator',
-    sequences: [ 'ctrl+c', 'ctrl+enter' ],
+    sequences: [ 'ctrl+enter' ],
   },
   history: {
     name: 'History',
@@ -74,6 +74,41 @@ export const GLOBAL_SHORTCUTS = decorateGroup( {
     sequences: [ 'ctrl+q' ],
   },
 } )( 'Global' )
+
+export const COPY_SHORTCUTS = decorateGroup( {
+  copyGurmukhi: {
+    name: 'Copy Gurmukhi',
+    sequences: [ 'ctrl+c g' ],
+  },
+  copyEnglishTransliteration: {
+    name: 'Copy English Transliteration',
+    sequences: [ 'ctrl+c t' ],
+  },
+  copyHindiTransliteration: {
+    name: 'Copy Hindi Transliteration',
+    sequences: [ 'ctrl+c h' ],
+  },
+  copyUrduTransliteration: {
+    name: 'Copy Urdu Transliteration',
+    sequences: [ 'ctrl+c u' ],
+  },
+  copyEnglishTranslation: {
+    name: 'Copy English Translation',
+    sequences: [ 'ctrl+c e' ],
+  },
+  copyPunjabiTranslation: {
+    name: 'Copy Punjabi Translation',
+    sequences: [ 'ctrl+c p' ],
+  },
+  copySpanishTranslation: {
+    name: 'Copy Spanish Translation',
+    sequences: [ 'ctrl+c s' ],
+  },
+  copyAuthor: {
+    name: 'Copy Author',
+    sequences: [ 'ctrl+c a' ],
+  },
+} )( 'Copying' )
 
 // Navigator-specific hotkeys
 export const NAVIGATOR_SHORTCUTS = decorateGroup( {
@@ -124,4 +159,4 @@ export const NAVIGATOR_SHORTCUTS = decorateGroup( {
   },
 } )( 'Navigator' )
 
-export default { ...GLOBAL_SHORTCUTS, ...NAVIGATOR_SHORTCUTS }
+export default { ...GLOBAL_SHORTCUTS, ...COPY_SHORTCUTS, ...NAVIGATOR_SHORTCUTS }

@@ -22,9 +22,16 @@ class Controller extends EventEmitter {
       minReconnectionDelay: 300 + Math.random() * 200,
       connectionTimeout: 1000,
     } )
-    this.socket.addEventListener( 'open', this.onOpen )
+
+    // Initialise settings
+    this.saveLocalSettings()
+    this.settings = { local: this.readSettings( true ) }
+
     this.socket.addEventListener( 'close', this.onClose )
     this.socket.addEventListener( 'message', this.onMessage )
+    this.socket.addEventListener( 'open', this.onOpen )
+
+    this.on( 'ready', this.onReady )
   }
 
   /**
@@ -45,8 +52,29 @@ class Controller extends EventEmitter {
    */
   onOpen = () => {
     console.log( 'Connected to server' )
-    this.setSettings()
     this.emit( 'connected' )
+  }
+
+
+  /**
+   * Called when the WebSocket is ready.
+   * @private
+   */
+  onReady = () => {
+    this.once( 'settings:all', ( { local = {}, ...rest } ) => {
+      // Transmit our local settings if the server does not have a copy
+      const doSyncSettings = !Object.keys( local ).length
+
+      if ( doSyncSettings ) this.setSettings()
+
+      // Hook normal settings event handler
+      this.on( 'settings:all', this.onSettings )
+
+      this.emit( 'settings:all', {
+        local: doSyncSettings ? this.settings.local : local,
+        ...rest,
+      } )
+    } )
   }
 
   /**
@@ -54,8 +82,9 @@ class Controller extends EventEmitter {
    * @private
    */
   onClose = () => {
+    this.off( 'settings:all', this.onSettings )
     console.log( 'Disconnected from server' )
-    this.emit( 'connected' )
+    this.emit( 'disconnected' )
   }
 
   /**
@@ -65,6 +94,11 @@ class Controller extends EventEmitter {
   onMessage = ( { data } ) => {
     const { event, payload } = JSON.parse( data )
     this.emit( event, payload )
+  }
+
+  onSettings = settings => {
+    this.settings = settings
+    this.emit( 'settings', settings )
   }
 
   /**
@@ -185,8 +219,8 @@ class Controller extends EventEmitter {
     }
   }
 
-  saveLocalSettings = settings => {
-    const local = merge( this.readSettings( true ), settings )
+  saveLocalSettings = ( settings = {}, combine = true ) => {
+    const local = combine ? merge( this.readSettings( true ), settings ) : settings
 
     analytics.updateSettings( local )
     localStorage.setItem( 'settings', JSON.stringify( local ) )
@@ -197,16 +231,16 @@ class Controller extends EventEmitter {
    * @param changed The changed settings.
    * @param host The optional host to apply the settings to. Default of `local`.
    */
-  setSettings = ( changed = {}, host = 'local' ) => {
+  setSettings = ( changed = {}, host = 'local', combine = true ) => {
     let settings = {}
     if ( host === 'local' ) {
-      this.saveLocalSettings( changed )
+      this.saveLocalSettings( changed, combine )
 
       settings = { local: this.readSettings( true ) }
 
-      this.emit( 'settings:all', settings )
+      this.emit( 'settings', settings )
     } else {
-      settings = { [ host ]: changed }
+      settings = { [ host ]: combine ? merge( this.settings[ host ], changed ) : changed }
     }
 
     // Transmit all settings
@@ -223,9 +257,14 @@ class Controller extends EventEmitter {
     ? url => this.action( 'open-external-url', url )
     : url => window.open( url )
 
-  resetSettings = () => {
-    localStorage.removeItem( 'settings' )
-    this.setSettings()
+  resetSettings = ( host = 'local' ) => {
+    localStorage.setItem( 'settings', '{}' )
+    this.setSettings( {}, host, false )
+  }
+
+  resetSettingGroup = ( group, host = 'local' ) => {
+    const { [ group ]: _, ...settings } = this.settings[ host ]
+    this.setSettings( settings, host, false )
   }
 }
 

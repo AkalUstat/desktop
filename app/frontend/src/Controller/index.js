@@ -35,6 +35,7 @@ import {
 } from '../lib/consts'
 import { getUrlState } from '../lib/utils'
 import { ContentContext, SettingsContext } from '../lib/contexts'
+import { useCurrentLines } from '../lib/hooks'
 
 import ToolbarButton from './ToolbarButton'
 import Search from './Search'
@@ -135,8 +136,7 @@ const BottomBar = ( { renderContent, onHover } ) => {
   const history = useHistory()
   const location = useLocation()
 
-  const { shabad, bani } = useContext( ContentContext )
-  const { lines = [] } = shabad || bani || {}
+  const lines = useCurrentLines()
 
   const go = pathname => () => history.push( { ...location, pathname } )
   const resetHover = () => onHover( null )
@@ -194,7 +194,7 @@ BottomBar.defaultProps = {
  */
 const Controller = props => {
   const { shabad, bani } = useContext( ContentContext )
-  const { lines } = shabad || bani || {}
+  const lines = useCurrentLines()
 
   const previousLines = usePrevious( lines )
 
@@ -217,7 +217,7 @@ const Controller = props => {
     const redirects = [ SEARCH_URL, HISTORY_URL, BOOKMARKS_URL ]
 
     // Redirect to navigator tab if on one of the redirectable pages
-    const isTransition = lines !== previousLines
+    const isTransition = lines.length && lines !== previousLines
 
     if ( isTransition && redirects.some( route => pathname.includes( route ) ) ) {
       history.push( { ...location, pathname: NAVIGATOR_URL } )

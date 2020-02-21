@@ -15,6 +15,7 @@ import { faPlus } from '@fortawesome/free-solid-svg-icons'
 
 import controller from '../lib/controller'
 import { getUrlState, mapPlatformKeys } from '../lib/utils'
+import { toggleFullscreen } from '../lib/electron-utils'
 import {
   CONTROLLER_URL,
   SEARCH_URL,
@@ -34,6 +35,7 @@ import ThemeLoader from '../shared/ThemeLoader'
 import Loader from '../shared/Loader'
 import NavigatorHotKeys from '../shared/NavigatorHotkeys'
 import { withErrorFallback } from '../shared/ErrorFallback'
+import CopyHotkeys from '../shared/CopyHotkeys'
 
 import StatusToast from './StatusToast'
 
@@ -122,14 +124,6 @@ const Presenter = () => {
   }
 
   /**
-   * Toggles presenter fullscreen.
-   */
-  const toggleFullscreen = () => ( !document.webkitFullscreenElement
-    ? document.documentElement.webkitRequestFullScreen()
-    : document.webkitExitFullscreen()
-  )
-
-  /**
    * Prevents the default action from occurring for each handler.
    * @param events An object containing the event names and corresponding handlers.
    */
@@ -180,21 +174,24 @@ const Presenter = () => {
 
       <GlobalHotKeys keyMap={mapPlatformKeys( hotkeys )} handlers={hotkeyHandlers}>
         <NavigatorHotKeys active={!isControllerOpen} mouseTargetRef={presenterRef}>
+          <CopyHotkeys>
 
-          <Suspense fallback={<Loader />}>
-            {!controllerOnly && <Display settings={localSettings} />}
-          </Suspense>
 
-          <div className={classNames( 'controller-container', { fullscreen: controllerOnly } )}>
-            <IconButton className="expand-icon" onClick={toggleController}>
-              <FontAwesomeIcon icon={faPlus} />
-            </IconButton>
+            <Suspense fallback={<Loader />}>
+              {!controllerOnly && <Display settings={localSettings} />}
+            </Suspense>
 
-            <Route path={CONTROLLER_URL}>
-              {() => <Controller />}
-            </Route>
-          </div>
+            <div className={classNames( 'controller-container', { fullscreen: controllerOnly } )}>
+              <IconButton className="expand-icon" onClick={toggleController}>
+                <FontAwesomeIcon icon={faPlus} />
+              </IconButton>
 
+              <Route path={CONTROLLER_URL}>
+                {() => <Controller />}
+              </Route>
+            </div>
+
+          </CopyHotkeys>
         </NavigatorHotKeys>
       </GlobalHotKeys>
 

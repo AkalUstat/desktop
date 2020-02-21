@@ -25,6 +25,7 @@ import { stripPauses, getJumpLines, getNextJumpLine, findLineIndex } from '../li
 import controller from '../lib/controller'
 import { LINE_HOTKEYS } from '../lib/keyMap'
 import { ContentContext, HistoryContext } from '../lib/contexts'
+import { useCurrentLines } from '../lib/hooks'
 
 import { withNavigationHotkeys } from '../shared/NavigationHotkeys'
 import NavigatorHotKeys from '../shared/NavigatorHotkeys'
@@ -109,7 +110,7 @@ const Navigator = ( { updateFocus, register, focused } ) => {
   const content = useContext( ContentContext )
   const { shabad, bani, lineId, mainLineId } = content
 
-  const { lines } = bani || shabad || {}
+  const lines = useCurrentLines()
 
   // Set the focus to the active line when it changes
   useEffect( () => { updateFocus( lineId, false ) }, [ lineId, updateFocus ] )
@@ -133,7 +134,7 @@ const Navigator = ( { updateFocus, register, focused } ) => {
   } ), {} ), [] )
 
   // If there's no Shabad to show, go back to the controller
-  if ( !lines ) return <Redirect to={{ ...location, pathname: SEARCH_URL }} />
+  if ( !lines.length ) return <Redirect to={{ ...location, pathname: SEARCH_URL }} />
 
   const jumpLines = invert( getJumpLines( content ) )
   const nextLineId = getNextJumpLine( content )

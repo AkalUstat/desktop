@@ -120,7 +120,8 @@
   content: "\200B";
 }
 
-.larivaar.assist.line .gurmukhi .word:nth-child(2n) {
+.line.larivaar.assist .gurmukhi .partition:nth-child(odd) .word:nth-child(even),
+.line.larivaar.assist .gurmukhi .partition:nth-child(even) .word:nth-child(odd) {
   color: var(--display-gurmukhi-larivaar-assist-color);
 }
 
@@ -141,6 +142,10 @@
 .light.vishraams.line .gurmukhi .word.light,
 .light.vishraams.line .vishraams.transliteration .word.light {
   color: var(--display-vishraam-light-color) !important;
+}
+
+.next-line, .previous-line {
+  min-height: min-content;
 }
 
 /* ------------------------------------

@@ -62,6 +62,8 @@
   transition: 0.3s all;
 }
 
+.settings .MuiListSubheader-root,
+.settings .MuiPaper-root,
 .settings main p,
 .settings main svg {
   color: var(--settings-text-color) !important;
